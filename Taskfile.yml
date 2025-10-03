@@ -1,0 +1,544 @@
+# Copyright 2025 Snowflake Inc.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# https://taskfile.dev
+
+version: "3"
+
+vars:
+  DOCS_DIR: "{{.USER_WORKING_DIR}}/sample-data/google-drive-docs"
+
+tasks:
+  create-google-drive-folder-structure:
+    desc: "Create the Google Drive folder structure in Festival Operations shared drive"
+    cmds:
+      - |
+        mkdir -p "{{.GOOGLE_DRIVE_DIR}}/Strategic Planning/Market Analysis" \
+         "{{.GOOGLE_DRIVE_DIR}}/Executive Meetings/Board Archives" \
+         "{{.GOOGLE_DRIVE_DIR}}/Financial Reports/Budget Planning" \
+         "{{.GOOGLE_DRIVE_DIR}}/Projects/Infrastructure" \
+         "{{.GOOGLE_DRIVE_DIR}}/Operations/Procedures" \
+         "{{.GOOGLE_DRIVE_DIR}}/Compliance/Policies" \
+         "{{.GOOGLE_DRIVE_DIR}}/Vendors/Contracts" \
+         "{{.GOOGLE_DRIVE_DIR}}/Training/Staff Development" \
+         "{{.GOOGLE_DRIVE_DIR}}/Analysis/Performance Reports" \
+         "{{.GOOGLE_DRIVE_DIR}}/Presentations/Executive Briefings" \
+         "{{.GOOGLE_DRIVE_DIR}}/Collaborative Docs/Project Documentation" \
+         "{{.GOOGLE_DRIVE_DIR}}/Formal Documents/Legal & Compliance" \
+         "{{.GOOGLE_DRIVE_DIR}}/Visual Content/Operational Guides"
+
+  clean-work:
+    desc: "Clean up work directory files"
+    cmds:
+      - |
+        rm -rf work/*
+        echo "🗑️  Work directory cleaned up"
+    silent: false
+
+  # Document Format Conversion Tasks
+
+  check-pandoc:
+    desc: "Check if pandoc is installed for document conversion"
+    cmds:
+      - |
+        if ! command -v pandoc &> /dev/null; then
+          echo "❌ pandoc is not installed. Please install with:"
+          echo "   macOS: brew install pandoc"
+          echo "   Ubuntu: sudo apt-get install pandoc"
+          echo "   Or visit: https://pandoc.org/installing.html"
+          exit 1
+        else
+          echo "✅ pandoc is available: $(pandoc --version | head -1)"
+        fi
+    silent: false
+
+  convert-to-pdf:
+    desc: "Convert markdown documents to PDF format - formal documents only (no duplicates)"
+    deps:
+      - check-pandoc
+    cmds:
+      - |
+        echo "📄 Converting documents to PDF format..."
+        echo "ℹ️  Only converting documents without other format assignments"
+
+        # Health & Safety Policy (Compliance Document)
+        echo "🛡️ Converting Health & Safety Policy..."
+        pandoc "{{.DOCS_DIR}}/Compliance/Policies/Health-Safety-Policy.md" \
+          -o "{{.DOCS_DIR}}/Compliance/Policies/Health-Safety-Policy.pdf" \
+          --pdf-engine=xelatex \
+          -V geometry:margin=1in \
+          -V fontsize=11pt \
+          -V documentclass=article \
+          -V papersize=letter
+        echo "✅ Health-Safety-Policy.pdf created (Policy distribution format)"
+
+        # Q3 Financial Analysis (Executive Report)
+        echo "💰 Converting Q3 Financial Analysis..."
+        pandoc "{{.DOCS_DIR}}/Planning/Budget/Q3-2024-Financial-Analysis.md" \
+          -o "{{.DOCS_DIR}}/Planning/Budget/Q3-2024-Financial-Analysis.pdf" \
+          --pdf-engine=xelatex \
+          -V geometry:margin=1in \
+          -V fontsize=11pt \
+          -V documentclass=article \
+          -V papersize=letter
+        echo "✅ Q3-2024-Financial-Analysis.pdf created (Financial report format)"
+
+        # Audio Equipment Service Agreement (Legal Contract)
+        echo "📋 Converting Service Agreement..."
+        pandoc "{{.DOCS_DIR}}/Vendor-Management/Contracts/Audio-Equipment-Service-Agreement.md" \
+          -o "{{.DOCS_DIR}}/Vendor-Management/Contracts/Audio-Equipment-Service-Agreement.pdf" \
+          --pdf-engine=xelatex \
+          -V geometry:margin=1in \
+          -V fontsize=11pt \
+          -V documentclass=article \
+          -V papersize=letter
+        echo "✅ Audio-Equipment-Service-Agreement.pdf created (Legal contract format)"
+
+        echo "🎉 PDF conversion complete - No format duplicates created!"
+    silent: false
+
+  convert-to-pptx:
+    desc: "Convert to PPTX for content processing (slide-level=4 prevents overflow, each #### gets own slide)"
+    deps:
+      - check-pandoc
+      - create-pptx-template
+    cmds:
+      - |
+        echo "📊 Converting documents to PPTX format with overflow fixes..."
+
+        # Customer Service Training Guide (Training Presentation)
+        echo "🎓 Converting Customer Service Training Guide..."
+        pandoc "{{.DOCS_DIR}}/Training/Staff-Onboarding/Customer-Service-Training-Guide.md" \
+          -o "{{.DOCS_DIR}}/Training/Staff-Onboarding/Customer-Service-Training-Guide.pptx" \
+          -t pptx \
+          --slide-level=4 \
+          --wrap=auto \
+          -V fontsize=12pt \
+          --columns=90 \
+          --reference-doc=templates/snowflake-openflow-template.pptx \
+          --dpi=300
+        echo "✅ Customer-Service-Training-Guide.pptx created (Content overflow fixed)"
+
+        # Post Event Analysis (Executive Report Presentation) 
+        echo "📈 Converting Post-Event Analysis..."
+        pandoc "{{.DOCS_DIR}}/Compliance/Incident-Reports/Post-Event-Analysis-Summer-2024.md" \
+          -o "{{.DOCS_DIR}}/Compliance/Incident-Reports/Post-Event-Analysis-Summer-2024.pptx" \
+          -t pptx \
+          --slide-level=4 \
+          --wrap=auto \
+          -V fontsize=12pt \
+          --columns=85 \
+          --reference-doc=templates/snowflake-openflow-template.pptx \
+          --dpi=300
+        echo "✅ Post-Event-Analysis-Summer-2024.pptx created (Content overflow fixed)"
+
+        echo "🎉 PPTX conversion complete - Content overflow issues resolved!"
+    silent: false
+
+  create-pptx-template:
+    desc: "Create/regenerate the PowerPoint reference template"
+    deps:
+      - check-pandoc
+    cmds:
+      - |
+        echo "🎨 Creating PowerPoint reference template..."
+        mkdir -p templates
+
+        # Generate professional PPTX template  
+        pandoc templates/reference-template.md \
+          -o templates/snowflake-openflow-template.pptx \
+          -t pptx \
+          --slide-level=4 \
+          -V theme=default \
+          -V colortheme=whale \
+          -V fonttheme=professionalfonts \
+          -V fontsize=12pt \
+          --columns=90 \
+          --dpi=300
+
+        echo "✅ snowflake-openflow-template.pptx created successfully!"
+        echo "📋 Template includes: Corporate styling, professional fonts, optimized layouts"
+        echo "🎯 This template will be used for all PPTX conversions"
+    silent: false
+
+  convert-to-docx:
+    desc: "Convert markdown documents to Word (DOCX) format"
+    deps:
+      - check-pandoc
+    cmds:
+      - |
+        echo "📄 Converting documents to DOCX..."
+
+        # Board Meeting Minutes
+        pandoc "{{.DOCS_DIR}}/Planning/Meetings/Board-Meeting-Minutes-Q4-2024.md" \
+          -o "{{.DOCS_DIR}}/Planning/Meetings/Board-Meeting-Minutes-Q4-2024.docx" \
+          -t docx
+        echo "✅ Board-Meeting-Minutes-Q4-2024.docx created"
+
+        # Project Charter
+        pandoc "{{.DOCS_DIR}}/Operations/Projects/Sound-System-Modernization-Project-Charter.md" \
+          -o "{{.DOCS_DIR}}/Operations/Projects/Sound-System-Modernization-Project-Charter.docx" \
+          -t docx
+        echo "✅ Sound-System-Modernization-Project-Charter.docx created"
+
+        echo "🎉 DOCX conversion complete!"
+    silent: false
+
+  convert-to-jpg:
+    desc: "Convert markdown documents to JPG format (clean intermediate PDFs)"
+    deps:
+      - check-pandoc
+    cmds:
+      - |
+        echo "🖼️  Converting documents to JPG..."
+
+        # Check for ImageMagick
+        if ! command -v convert &> /dev/null; then
+          echo "❌ ImageMagick not found. Installing via brew..."
+          if command -v brew &> /dev/null; then
+            brew install imagemagick
+          else
+            echo "Please install ImageMagick manually"
+            exit 1
+          fi
+        fi
+
+        # Festival Expansion Strategy (Strategic Overview)
+        echo "📊 Converting Festival Expansion Strategy..."
+        TEMP_PDF_1="{{.DOCS_DIR}}/Planning/Strategic/temp-expansion-strategy.pdf"
+        pandoc "{{.DOCS_DIR}}/Planning/Strategic/2025-Festival-Expansion-Strategy.md" \
+          -o "$TEMP_PDF_1" \
+          --pdf-engine=xelatex \
+          -V geometry:margin=0.5in \
+          -V fontsize=10pt \
+          -V documentclass=article
+
+        convert "$TEMP_PDF_1" \
+          -density 200 \
+          -quality 95 \
+          -background white \
+          -alpha remove \
+          "{{.DOCS_DIR}}/Planning/Strategic/2025-Festival-Expansion-Strategy.jpg"
+
+        # Clean up intermediate PDF
+        rm "$TEMP_PDF_1"
+        echo "✅ 2025-Festival-Expansion-Strategy.jpg created (intermediate PDF cleaned)"
+
+        # Operations Manual (Visual Guide)
+        echo "📖 Converting Operations Manual..."
+        TEMP_PDF_2="{{.DOCS_DIR}}/Operations/Manuals/temp-operations-manual.pdf"
+        pandoc "{{.DOCS_DIR}}/Operations/Manuals/Venue-Setup-Operations-Manual.md" \
+          -o "$TEMP_PDF_2" \
+          --pdf-engine=xelatex \
+          -V geometry:margin=0.5in \
+          -V fontsize=9pt \
+          -V documentclass=article
+
+        convert "$TEMP_PDF_2" \
+          -density 200 \
+          -quality 95 \
+          -background white \
+          -alpha remove \
+          "{{.DOCS_DIR}}/Operations/Manuals/Venue-Setup-Operations-Manual.jpg"
+
+        # Clean up intermediate PDF
+        rm "$TEMP_PDF_2"
+        echo "✅ Venue-Setup-Operations-Manual.jpg created (intermediate PDF cleaned)"
+
+        echo "🎉 JPG conversion complete - No duplicate PDF files created!"
+    silent: false
+
+  convert-all-docs:
+    desc: "Convert all documents to optimized formats (no duplicates, clean intermediate files)"
+    deps:
+      - convert-to-pdf
+      - convert-to-pptx
+      - convert-to-docx
+      - convert-to-jpg
+    cmds:
+      - |
+        echo "🎉 ALL DOCUMENT CONVERSIONS COMPLETE!"
+        echo ""
+        echo "📊 OPTIMIZED CONVERSION SUMMARY:"
+        echo "• 3 PDF files created (formal documents only)"
+        echo "• 2 PPTX files created (presentation optimized)"
+        echo "• 2 DOCX files created (collaborative documents)" 
+        echo "• 2 JPG files created (intermediate PDFs cleaned)"
+        echo "• 9 original MD files preserved"
+        echo ""
+        echo "✅ NO DUPLICATE FORMATS: Each document has exactly one converted format"
+        echo "🧹 NO INTERMEDIATE FILES: JPG conversion cleaned temporary PDFs"
+        echo "🎯 TOTAL: 18 documents optimized for different business use cases"
+    silent: false
+
+  clean-converted-docs:
+    desc: "Remove all converted document files (keep original .md files)"
+    cmds:
+      - |
+        echo "🗑️ Cleaning converted documents..."
+        echo ""
+
+        # Find and display files before removing them
+        echo "📄 Searching for converted documents to remove:"
+        PDF_FILES=$(find "{{.DOCS_DIR}}" -name "*.pdf" 2>/dev/null | wc -l | tr -d ' ')
+        PPTX_FILES=$(find "{{.DOCS_DIR}}" -name "*.pptx" 2>/dev/null | wc -l | tr -d ' ')
+        DOCX_FILES=$(find "{{.DOCS_DIR}}" -name "*.docx" 2>/dev/null | wc -l | tr -d ' ')
+        JPG_FILES=$(find "{{.DOCS_DIR}}" -name "*.jpg" 2>/dev/null | wc -l | tr -d ' ')
+
+        TOTAL=$((PDF_FILES + PPTX_FILES + DOCX_FILES + JPG_FILES))
+
+        if [ $TOTAL -eq 0 ]; then
+          echo "ℹ️  No converted documents found to clean"
+          echo "   (All files are already clean or no conversions have been run)"
+        else
+          echo "🔍 Found $TOTAL converted files:"
+          [ $PDF_FILES -gt 0 ] && echo "   • $PDF_FILES PDF files"
+          [ $PPTX_FILES -gt 0 ] && echo "   • $PPTX_FILES PPTX files" 
+          [ $DOCX_FILES -gt 0 ] && echo "   • $DOCX_FILES DOCX files"
+          [ $JPG_FILES -gt 0 ] && echo "   • $JPG_FILES JPG files"
+          echo ""
+          
+          echo "🗑️ Removing files..."
+          [ $PDF_FILES -gt 0 ] && find "{{.DOCS_DIR}}" -name "*.pdf" -delete && echo "   ✅ $PDF_FILES PDF files removed"
+          [ $PPTX_FILES -gt 0 ] && find "{{.DOCS_DIR}}" -name "*.pptx" -delete && echo "   ✅ $PPTX_FILES PPTX files removed"
+          [ $DOCX_FILES -gt 0 ] && find "{{.DOCS_DIR}}" -name "*.docx" -delete && echo "   ✅ $DOCX_FILES DOCX files removed"
+          [ $JPG_FILES -gt 0 ] && find "{{.DOCS_DIR}}" -name "*.jpg" -delete && echo "   ✅ $JPG_FILES JPG files removed"
+          
+          echo ""
+          echo "🎉 Successfully removed $TOTAL converted documents!"
+        fi
+
+        echo ""
+        echo "📝 Original .md files preserved - ready for fresh conversions"
+    silent: true
+
+  # =====================================================
+  # Google Drive Document Copy Tasks (Demo Categories)
+  # =====================================================
+
+  copy-category-1-strategic:
+    desc: "Copy Category 1: Strategic Planning & Executive Intelligence documents to Google Drive"
+    cmds:
+      - |
+        echo "📋 Copying Category 1: Strategic Planning & Executive Intelligence"
+        echo ""
+
+        # Strategic Expansion Strategy (JPG - multiple images)
+        echo "📊 Copying Strategic Expansion Strategy images..."
+        if ls "{{.DOCS_DIR}}/Strategic Planning/2025-Festival-Expansion-Strategy-"*.jpg >/dev/null 2>&1; then
+          for file in "{{.DOCS_DIR}}/Strategic Planning/2025-Festival-Expansion-Strategy-"*.jpg; do
+            cp "$file" "{{.GOOGLE_DRIVE_DIR}}/Strategic Planning/"
+          done
+          echo "   ✅ Strategic expansion images copied"
+        else
+          echo "   ⚠️  Strategic expansion images not found"
+        fi
+
+        # Board Meeting Minutes (DOCX)
+        echo "📝 Copying Board Meeting Minutes..."
+        if [ -f "{{.DOCS_DIR}}/Executive Meetings/Board-Meeting-Minutes-Q4-2024.docx" ]; then
+          cp "{{.DOCS_DIR}}/Executive Meetings/Board-Meeting-Minutes-Q4-2024.docx" "{{.GOOGLE_DRIVE_DIR}}/Executive Meetings/Q4 2024 Board Minutes.docx"
+          echo "   ✅ Board meeting minutes copied"
+        else
+          echo "   ⚠️  Board meeting minutes not found"
+        fi
+
+        # Financial Analysis (PDF)
+        echo "💰 Copying Financial Analysis..."
+        if [ -f "{{.DOCS_DIR}}/Financial Reports/Q3-2024-Financial-Analysis.pdf" ]; then
+          cp "{{.DOCS_DIR}}/Financial Reports/Q3-2024-Financial-Analysis.pdf" "{{.GOOGLE_DRIVE_DIR}}/Financial Reports/Q3 2024 Analysis.pdf"
+          echo "   ✅ Financial analysis copied"
+        else
+          echo "   ⚠️  Financial analysis not found"
+        fi
+
+        echo ""
+        echo "🎯 Category 1 (Strategic Planning & Executive Intelligence) copy complete!"
+        echo ""
+        echo "💡 SAMPLE QUESTIONS FOR CORTEX SEARCH DEMO:"
+        echo "   1. 'What are our 2025 expansion plans and target markets?'"
+        echo "   2. 'Show me all financial analysis and revenue projections'"
+    silent: true
+
+  copy-category-2-operations:
+    desc: "Copy Category 2: Operations Excellence & Technology Modernization documents to Google Drive"
+    cmds:
+      - |
+        echo "🎯 Copying Category 2: Operations Excellence & Technology Modernization"
+        echo ""
+
+        # Sound System Project Charter (DOCX)
+        echo "🔊 Copying Sound System Project Charter..."
+        if [ -f "{{.DOCS_DIR}}/Projects/Sound-System-Modernization-Project-Charter.docx" ]; then
+          cp "{{.DOCS_DIR}}/Projects/Sound-System-Modernization-Project-Charter.docx" "{{.GOOGLE_DRIVE_DIR}}/Projects/Sound System Upgrade 2024.docx"
+          echo "   ✅ Sound system project charter copied"
+        else
+          echo "   ⚠️  Sound system project charter not found"
+        fi
+
+        # Venue Setup Operations Manual (JPG - multiple images)
+        echo "🏟️ Copying Venue Setup Operations Manual images..."
+        if ls "{{.DOCS_DIR}}/Operations/Venue-Setup-Operations-Manual-"*.jpg >/dev/null 2>&1; then
+          for file in "{{.DOCS_DIR}}/Operations/Venue-Setup-Operations-Manual-"*.jpg; do
+            cp "$file" "{{.GOOGLE_DRIVE_DIR}}/Operations/"
+          done
+          echo "   ✅ Venue setup manual images copied"
+        else
+          echo "   ⚠️  Venue setup manual images not found"
+        fi
+
+        # Post-Event Analysis (PPTX)
+        echo "📊 Copying Post-Event Analysis..."
+        if [ -f "{{.DOCS_DIR}}/Analysis/Post-Event-Analysis-Summer-2024.pptx" ]; then
+          cp "{{.DOCS_DIR}}/Analysis/Post-Event-Analysis-Summer-2024.pptx" "{{.GOOGLE_DRIVE_DIR}}/Analysis/Summer 2024 Review.pptx"
+          echo "   ✅ Post-event analysis copied"
+        else
+          echo "   ⚠️  Post-event analysis not found"
+        fi
+
+        echo ""
+        echo "⚡ Category 2 (Operations Excellence & Technology Modernization) copy complete!"
+        echo ""
+        echo "💡 SAMPLE QUESTIONS FOR CORTEX SEARCH DEMO:"
+        echo "   1. 'Find all technology modernization projects and their budgets'"
+        echo "   2. 'Show me venue setup procedures and safety protocols'"
+    silent: true
+
+  copy-category-3-compliance:
+    desc: "Copy Category 3: Compliance & Risk Management documents to Google Drive"
+    cmds:
+      - |
+        echo "🛡️ Copying Category 3: Compliance & Risk Management"
+        echo ""
+
+        # Health & Safety Policy (PDF)
+        echo "🏥 Copying Health & Safety Policy..."
+        if [ -f "{{.DOCS_DIR}}/Compliance/Health-Safety-Policy.pdf" ]; then
+          cp "{{.DOCS_DIR}}/Compliance/Health-Safety-Policy.pdf" "{{.GOOGLE_DRIVE_DIR}}/Compliance/Health Safety Standards.pdf"
+          echo "   ✅ Health & safety policy copied"
+        else
+          echo "   ⚠️  Health & safety policy not found"
+        fi
+
+        # Audio Equipment Service Agreement (PDF)
+        echo "🎵 Copying Audio Equipment Service Agreement..."
+        if [ -f "{{.DOCS_DIR}}/Vendors/Audio-Equipment-Service-Agreement.pdf" ]; then
+          cp "{{.DOCS_DIR}}/Vendors/Audio-Equipment-Service-Agreement.pdf" "{{.GOOGLE_DRIVE_DIR}}/Vendors/Audio Service Contract.pdf"
+          echo "   ✅ Audio service agreement copied"
+        else
+          echo "   ⚠️  Audio service agreement not found"
+        fi
+
+        # Note: Post-Event Analysis is already copied in Category 2
+        echo "📊 Post-Event Analysis already copied in Category 2 (Operations)"
+
+        echo ""
+        echo "🛡️ Category 3 (Compliance & Risk Management) copy complete!"
+        echo ""
+        echo "💡 SAMPLE QUESTIONS FOR CORTEX SEARCH DEMO:"
+        echo "   1. 'What health and safety policies are currently in effect?'"
+        echo "   2. 'Find all vendor contracts and service agreements'"
+    silent: true
+
+  copy-category-4-knowledge:
+    desc: "Copy Category 4: Knowledge Management & Staff Development documents to Google Drive"
+    cmds:
+      - |
+        echo "🎓 Copying Category 4: Knowledge Management & Staff Development"
+        echo ""
+
+        # Customer Service Training Guide (PPTX)
+        echo "👥 Copying Customer Service Training Guide..."
+        if [ -f "{{.DOCS_DIR}}/Training/Customer-Service-Training-Guide.pptx" ]; then
+          cp "{{.DOCS_DIR}}/Training/Customer-Service-Training-Guide.pptx" "{{.GOOGLE_DRIVE_DIR}}/Training/Customer Service Excellence.pptx"
+          echo "   ✅ Customer service training guide copied"
+        else
+          echo "   ⚠️  Customer service training guide not found"
+        fi
+
+        # Note: Venue Setup Manual and Board Minutes are already copied in other categories
+        echo "🏟️ Venue Setup Manual already copied in Category 2 (Operations)"
+        echo "📝 Board Meeting Minutes already copied in Category 1 (Strategic)"
+
+        echo ""
+        echo "🎓 Category 4 (Knowledge Management & Staff Development) copy complete!"
+        echo ""
+        echo "💡 SAMPLE QUESTIONS FOR CORTEX SEARCH DEMO:"
+        echo "   1. 'Find all training materials and staff development programs'"
+        echo "   2. 'Show me cross-functional collaboration patterns'"
+    silent: true
+
+  copy-all-categories:
+    desc: "Copy all 4 demo categories to Google Drive (Strategic, Operations, Compliance, Knowledge)"
+    deps:
+      - copy-category-1-strategic
+      - copy-category-2-operations
+      - copy-category-3-compliance
+      - copy-category-4-knowledge
+    cmds:
+      - |
+        echo ""
+        echo "==============================================="
+        echo "    📁 ALL DEMO CATEGORIES COPIED TO GOOGLE DRIVE"
+        echo "==============================================="
+        echo ""
+        echo "✅ Category 1: Strategic Planning & Executive Intelligence"
+        echo "   • Strategic Expansion Strategy (JPG images)"
+        echo "   • Board Meeting Minutes (DOCX)"
+        echo "   • Financial Analysis (PDF)"
+        echo ""
+        echo "✅ Category 2: Operations Excellence & Technology Modernization"
+        echo "   • Sound System Project Charter (DOCX)"
+        echo "   • Venue Setup Operations Manual (JPG images)"
+        echo "   • Post-Event Analysis (PPTX)"
+        echo ""
+        echo "✅ Category 3: Compliance & Risk Management"
+        echo "   • Health & Safety Policy (PDF)"
+        echo "   • Audio Service Agreement (PDF)"
+        echo ""
+        echo "✅ Category 4: Knowledge Management & Staff Development"
+        echo "   • Customer Service Training Guide (PPTX)"
+        echo ""
+        echo "🎯 GOOGLE DRIVE STRUCTURE: '{{.GOOGLE_DRIVE_DIR}}/'"
+        echo "📊 READY FOR OPENFLOW PROCESSING!"
+        echo ""
+        echo "🚀 Next Steps:"
+        echo "   1. Configure OpenFlow Google Drive connector"
+        echo "   2. Point to 'Festival Operations' shared drive folder"
+        echo "   3. Run OpenFlow to process documents into Snowflake"
+        echo "   4. Create Cortex Search service on processed data"
+        echo ""
+        echo "💡 COMPREHENSIVE SAMPLE QUESTIONS FOR CORTEX SEARCH DEMO:"
+        echo ""
+        echo "   📊 Strategic Intelligence:"
+        echo "   • 'What are our 2025 expansion plans and target markets?'"
+        echo "   • 'Show me all financial analysis and revenue projections'"
+        echo ""
+        echo "   ⚡ Operations Excellence:"
+        echo "   • 'Find all technology modernization projects and their budgets'"
+        echo "   • 'Show me venue setup procedures and safety protocols'"
+        echo ""
+        echo "   🛡️ Compliance & Risk:"
+        echo "   • 'What health and safety policies are currently in effect?'"
+        echo "   • 'Find all vendor contracts and service agreements'"
+        echo ""
+        echo "   🎓 Knowledge Management:"
+        echo "   • 'Find all training materials and staff development programs'"
+        echo "   • 'Show me cross-functional collaboration patterns'"
+        echo ""
+        echo "   🔍 Cross-Category Intelligence:"
+        echo "   • 'Which documents have the most collaboration and strategic importance?'"
+        echo "   • 'What operational risks and mitigation strategies are documented?'"
+    silent: true
